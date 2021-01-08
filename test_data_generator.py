@@ -166,6 +166,7 @@ for i, row in user_ip_df.iterrows():
             if row['Index'] > row['Dependency Index']: 
                 if row['Dependency Index'] not in pk_dict:
                     print("Build the dependency before using it in the FK")
+                    sys.exit(1)
                 fk_list = [ random.choice(pk_dict[row['Dependency Index']]) for _ in range(n) ]
                 tbl_df[row['Column']] = pd.Series(fk_list)
 
