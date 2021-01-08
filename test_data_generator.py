@@ -43,16 +43,10 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
     rec = []
     if static_values:
         if number_of_rows > len(static_values):
-            for i in range(0,number_of_rows):
-                if type_of_rec == 'country prefix': 
-                    rec.append(faker.country_code())
-                elif type_of_rec == 'country':
-                    rec.append(faker.country())
-                elif type_of_rec == 'phone number':
-                    rec.append(faker.phone_number())
-        else:
-            for i in range(0,number_of_rows):
-                rec.append(static_values[i])
+            print("Not enough values in static value list to form unique/PK records")
+            sys.exit(1)
+        for i in range(0,number_of_rows): 
+            rec.append(static_values[i])
         
     else:
         for i in range(0,number_of_rows):
@@ -61,7 +55,30 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
             elif type_of_rec == 'ID':
                 rec.append(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr)))
             elif type_of_rec == 'country prefix': 
-                    rec.append(faker.country_code())
+                rec.append(faker.unique.country_code())
+            elif type_of_rec == 'country':
+                rec.append(faker.unique.country())
+            elif type_of_rec == 'phone number':
+                rec.append(faker.unique.phone_number()) 
+            elif type_of_rec == 'city prefix':
+                rec.append(faker.unique.city())
+            elif type_of_rec == 'city':
+                rec.append(faker.unique.city())
+            elif type_of_rec == 'state prefix':
+                rec.append(faker.unique.state())
+            elif type_of_rec == 'state':
+                rec.append(faker.unique.state())
+            elif type_of_rec == 'postal code':
+                rec.append(faker.unique.postalcode())
+            elif type_of_rec == 'name':
+                rec.append(faker.unique.name())
+            elif type_of_rec == 'char' or type_of_rec == 'varchar':
+                if type_of_rec == 'char':
+                    rec.append(faker.unique.word())
+                else:
+                    rec.append(faker.unique.word())
+            
+            
                 
     return({column_name: rec}) 
 
@@ -93,6 +110,7 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
                 rec.append((random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec))
             elif type_of_rec == 'char' or type_of_rec == 'varchar':
                 if not length_attr:
+                    print("Character or varchar columns need a length specification")
                     sys.exit(1)
                 
                 if type_of_rec == 'char':
@@ -110,39 +128,55 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
 user_ip_df = pd.read_excel('E:/TestDataGeneration/test_data_generation.xlsx', dtype=str)
 faker = Faker(seed=1000)
 tbl_df = pd.DataFrame()
+df_lists = []
+pk_dict = {}
 for i, row in user_ip_df.iterrows():
         
     if i==0: #set up the first database and table
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
-        n = int(row['Number_Of_Records'])            
+        n = int(row['Number_Of_Records'])
+        pk = False           
     
     if row['Databasename'] != db_curr or row['Tablename'] != tbl_curr:
         n = int(row['Number_Of_Records'])
         tblename = db_curr + '_' + tbl_curr + '.csv'
         tbl_df.to_csv(tblename)
+        df_lists.append(tbl_df)
         tbl_df = pd.DataFrame()
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
+        pk = False
         
     val_min, val_max, static_value_list, precision_val, len_val =  derive_meta(row['Minimum'], row['Maximum'], row['Static_Value'], row['Length'], row['Precision'], n)
        
-    if row['Key'] == 'Primary Key' or row['Key'] == 'Unique':        
+    if row['Key'] == 'Primary Key' or row['Key'] == 'Unique':
+        if row['Key'] == 'Primary Key' and pk:
+            print(db_curr + '_' + tbl_curr + ':', "More than one column is specified as primary key. If using composite key, select the option for it")
+            sys.exit(1)
+        pk = True
         data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, n)
+        if row['Key'] == 'Primary Key':             
+            pk_dict[row['Index']] =  list(data_dict.values())[0] 
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         tbl_df[row['Column']] = data_df[row['Column']]
     
     elif row['Key'] == 'Foreign Key':
-        tbl_df[row['Column']] = np.nan
-    
+        if row['Dependency Index']:
+            if row['Index'] > row['Dependency Index']: 
+                if row['Dependency Index'] not in pk_dict:
+                    print("Build the dependency before using it in the FK")
+                fk_list = [ random.choice(pk_dict[row['Dependency Index']]) for _ in range(n) ]
+                tbl_df[row['Column']] = pd.Series(fk_list)
+
+        else:
+            print("For a foreign key, please specify dependency")
+            sys.exit(1)
+
     else:
         data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, row['Length'], static_value_list, precision_val, n)
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         tbl_df[row['Column']] = data_df[row['Column']]
 
 tblename = db_curr + '_' + tbl_curr + '.csv'        
-tbl_df.to_csv(tblename)    
-    
-
-        
-    
+tbl_df.to_csv(tblename)
