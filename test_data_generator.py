@@ -4,6 +4,7 @@ import pandas as pd
 import random
 import sys 
 import string
+import datetime
 
 def derive_meta(min_field,max_field,static_field,length_field, precision_field,  n):
     '''Setting up the missing data in the input'''
@@ -14,7 +15,7 @@ def derive_meta(min_field,max_field,static_field,length_field, precision_field, 
         
     if max_field != max_field:
         if length_field != length_field: 
-            val_max = val_min + n*n
+            val_max = val_min + 10*n
         else: 
             val_max = int(0.99999999999999 * (10**(int(length_field))))
     else:
@@ -38,7 +39,7 @@ def derive_meta(min_field,max_field,static_field,length_field, precision_field, 
     return val_min, val_max, static_value_list, precision_field, length_field
     
 
-def generate_key(column_name, type_of_rec, start_range, end_range, static_values, len_attr, number_of_rows):
+def generate_key(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, number_of_rows):
     '''Generate values for records mentioned as primary key'''
     rec = []
     if static_values:
@@ -53,7 +54,10 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
             if type_of_rec == 'number': 
                 rec.append(faker.unique.random_int(start_range, end_range))
             elif type_of_rec == 'ID':
-                rec.append(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr)))
+                id_rec = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr))
+                while id_rec in rec:
+                    id_rec = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr))
+                rec.append(id_rec)
             elif type_of_rec == 'country prefix': 
                 rec.append(faker.unique.country_code())
             elif type_of_rec == 'country':
@@ -74,15 +78,29 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 rec.append(faker.unique.name())
             elif type_of_rec == 'char' or type_of_rec == 'varchar':
                 if type_of_rec == 'char':
-                    rec.append(faker.unique.word())
+                    char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(len_attr))
+                    while char_rec in rec: 
+                        char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(len_attr)) 
+                    rec.append(char_rec)
                 else:
-                    rec.append(faker.unique.word())
-            
-            
+                    rand_len = random.randint(0, len_attr)
+                    var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len))
+                    while var_char_rec in rec: 
+                        var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len)) 
+                    rec.append(var_char_rec)
+            elif type_of_rec == 'first name':
+                rec.append(faker.unique.first_name())
+            elif type_of_rec == 'last name':
+                rec.append(faker.unique.last_name())
+            elif type_of_rec == 'decimal':
+                rand_dec = (random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec)
+                while rand_dec in rec:
+                    rand_dec = (random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec)
+                rec.append(rand_dec)
                 
     return({column_name: rec}) 
 
-def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr, static_values, precision_dec, number_of_rows):
+def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr, static_values, len_attr, precision_dec, number_of_rows):
     '''Generate values for records which are not PK or FK'''
     rec = []
     #print(column_name, type_of_rec, start_range, end_range, length_attr, static_values, number_of_rows)
@@ -114,9 +132,12 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
                     sys.exit(1)
                 
                 if type_of_rec == 'char':
-                    rec.append(faker.word())
+                    char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(int(len_attr))) 
+                    rec.append(char_rec)
                 else:
-                    rec.append(faker.word())
+                    rand_len = random.randint(0, len_attr)
+                    var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(int(rand_len)))
+                    rec.append(var_char_rec)
                     
     else: 
         for i in range(0,number_of_rows): 
@@ -155,7 +176,7 @@ for i, row in user_ip_df.iterrows():
             print(db_curr + '_' + tbl_curr + ':', "More than one column is specified as primary key. If using composite key, select the option for it")
             sys.exit(1)
         pk = True
-        data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, n)
+        data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, precision_val, n)
         if row['Key'] == 'Primary Key':             
             pk_dict[row['Index']] =  list(data_dict.values())[0] 
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
@@ -175,7 +196,7 @@ for i, row in user_ip_df.iterrows():
             sys.exit(1)
 
     else:
-        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, row['Length'], static_value_list, precision_val, n)
+        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, row['Length'], static_value_list, row['Length'], precision_val, n)
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         tbl_df[row['Column']] = data_df[row['Column']]
 
