@@ -6,25 +6,75 @@ import sys
 import string
 import datetime
 
-def derive_meta(min_field,max_field,static_field,length_field, precision_field,  n):
+def derive_meta(type_of_rec, min_field,max_field,static_field,length_field, precision_field,  n):
     '''Setting up the missing data in the input'''
     if min_field != min_field:
-        val_min = 0
+        if type_of_rec not in ('date', 'time', 'datetime'):
+            val_min = 0
+        elif type_of_rec == 'date':
+            val_min = datetime.date(1990,1,1)
+        elif type_of_rec == 'time':
+            val_min = datetime.time(0,0,0)
+        else:
+            val_min = datetime.datetime(1990,1,1,0,0,0)
     else:
-        val_min = int(min_field)
+        if type_of_rec not in ('date', 'time', 'datetime'):
+            val_min = int(min_field)
+        elif type_of_rec == 'date':
+            date_splt = [int(rowval.strip()) for rowval in min_field.split('-')]
+            val_min = datetime.date(date_splt[0],date_splt[1],date_splt[2])
+        elif type_of_rec == 'time':
+            time_splt = [int(rowval.strip()) for rowval in min_field.split(':')]
+            val_min = datetime.time(time_splt[0],time_splt[1],time_splt[2])
+        else:
+            date_elem = (min_field.strip()).split(' ') [0]
+            time_elem = (min_field.strip()).split(' ') [1] 
+            date_splt = [int(rowval.strip()) for rowval in date_elem.split('-')]
+            time_splt = [int(rowval.strip()) for rowval in time_elem.split(':')]
+            val_min = datetime.datetime(date_splt[0], date_splt[1], date_splt[2], time_splt[0], time_splt[1], time_splt[2])            
         
     if max_field != max_field:
-        if length_field != length_field: 
-            val_max = val_min + 10*n
-        else: 
-            val_max = int(0.99999999999999 * (10**(int(length_field))))
+        if type_of_rec not in ('date', 'time', 'datetime'):
+            if length_field != length_field:  
+                val_max = val_min + 10*n
+            else: 
+                val_max = int(0.99999999999999 * (10**(int(length_field)))) 
+        elif type_of_rec == 'date':
+            val_max = datetime.date(2030,12,31)
+        elif type_of_rec == 'time':
+            val_max = datetime.time(23,59,59)
+        else:
+            val_max = datetime.datetime(2030,12,31,23,59,59)
     else:
-        val_max = int(max_field)
+        if type_of_rec not in ('date', 'time', 'datetime'): 
+            val_max = int(max_field)
+        elif type_of_rec == 'date':
+            date_splt = [int(rowval.strip()) for rowval in max_field.split('-')] 
+            val_max = datetime.date(date_splt[0],date_splt[1],date_splt[2]) 
+        elif type_of_rec == 'time':
+            time_splt = [int(rowval.strip()) for rowval in max_field.split(':')]
+            val_max = datetime.time(time_splt[0],time_splt[1],time_splt[2])
+        else:
+            date_elem = (max_field.strip()).split(' ') [0]
+            time_elem = (max_field.strip()).split(' ') [1] 
+            date_splt = [int(rowval.strip()) for rowval in date_elem.split('-')]
+            time_splt = [int(rowval.strip()) for rowval in time_elem.split(':')]
+            val_max = datetime.datetime(date_splt[0], date_splt[1], date_splt[2], time_splt[0], time_splt[1], time_splt[2])
             
     if static_field != static_field: 
         static_value_list = []
     else: 
-        static_value_list = [rowval.strip() for rowval in static_field.split(',')]
+        if type_of_rec not in ('date', 'time', 'datetime'): 
+            static_value_list = [rowval.strip() for rowval in static_field.split(',')] 
+        elif type_of_rec == 'date' :
+            static_value_str_list = [rowval.strip() for rowval in static_field.split(',')] 
+            static_value_list = [d.date() for d in pd.to_datetime(static_value_str_list)]
+        elif type_of_rec == 'time' :
+            static_value_str_list = [rowval.strip() for rowval in static_field.split(',')] 
+            static_value_list = [d.time() for d in pd.to_datetime(static_value_str_list)]
+        else:
+            static_value_str_list = [rowval.strip() for rowval in static_field.split(',')] 
+            static_value_list = [d.datetime() for d in pd.to_datetime(static_value_str_list)]
         
     if precision_field != precision_field:
         precision_field = 2
@@ -97,6 +147,19 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 while rand_dec in rec:
                     rand_dec = (random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec)
                 rec.append(rand_dec)
+            elif type_of_rec == 'date':
+                rec.append(faker.unique.date_between(start_range, end_range))
+            elif type_of_rec == 'datetime':
+                rec.append(faker.unique.date_time_between(start_range, end_range))
+            elif type_of_rec == 'time':
+                start_sec = start_range.hour*60*60 + start_range.minute*60 + start_range.second
+                end_sec = end_range.hour*60*60 + end_range.minute*60 + end_range.second
+                rand_sec = faker.unique.random_int(start_sec, end_sec)
+                hour_time = rand_sec//(60*60)
+                minute_time = (rand_sec - (hour_time*60*60)) // 60
+                second_time = (rand_sec - (hour_time*60*60)) % 60
+                time_rec = datetime.time(hour_time, minute_time, second_time)
+                rec.append(time_rec)
                 
     return({column_name: rec}) 
 
@@ -138,7 +201,20 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
                     rand_len = random.randint(0, len_attr)
                     var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(int(rand_len)))
                     rec.append(var_char_rec)
-                    
+            elif type_of_rec == 'date':
+                rec.append(faker.date_between(start_range, end_range))
+            elif type_of_rec == 'datetime':
+                rec.append(faker.date_time_between(start_range, end_range))
+            elif type_of_rec == 'time':
+                start_sec = start_range.hour*60*60 + start_range.minute*60 + start_range.second
+                end_sec = end_range.hour*60*60 + end_range.minute*60 + end_range.second
+                rand_sec = faker.random_int(start_sec, end_sec)
+                hour_time = rand_sec//(60*60)
+                minute_time = (rand_sec - (hour_time*60*60)) // 60
+                second_time = (rand_sec - (hour_time*60*60)) % 60
+                time_rec = datetime.time(hour_time, minute_time, second_time)
+                rec.append(time_rec)
+                
     else: 
         for i in range(0,number_of_rows): 
             rec.append(random.choice(static_values))
@@ -169,7 +245,7 @@ for i, row in user_ip_df.iterrows():
         tbl_curr = row['Tablename']
         pk = False
         
-    val_min, val_max, static_value_list, precision_val, len_val =  derive_meta(row['Minimum'], row['Maximum'], row['Static_Value'], row['Length'], row['Precision'], n)
+    val_min, val_max, static_value_list, precision_val, len_val =  derive_meta(row['Type'], row['Minimum'], row['Maximum'], row['Static_Value'], row['Length'], row['Precision'], n)
        
     if row['Key'] == 'Primary Key' or row['Key'] == 'Unique':
         if row['Key'] == 'Primary Key' and pk:
