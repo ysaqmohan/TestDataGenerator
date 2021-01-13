@@ -91,66 +91,66 @@ def derive_meta(type_of_rec, min_field,max_field,static_field,length_field, prec
 
 def generate_key(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, number_of_rows):
     '''Generate values for records mentioned as primary key'''
-    rec = []
+    rec = set()
     if static_values:
         if number_of_rows > len(static_values):
             print("Not enough values in static value list to form unique/PK records")
             sys.exit(1)
         for i in range(0,number_of_rows): 
-            rec.append(static_values[i])
+            rec.add(static_values[i])
         
     else:
         for i in range(0,number_of_rows):
             if type_of_rec == 'number': 
-                rec.append(faker.unique.random_int(start_range, end_range))
+                rec.add(faker.unique.random_int(start_range, end_range))
             elif type_of_rec == 'ID':
                 id_rec = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr))
                 while id_rec in rec:
                     id_rec = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(len_attr))
-                rec.append(id_rec)
+                rec.add(id_rec)
             elif type_of_rec == 'country prefix': 
-                rec.append(faker.unique.country_code())
+                rec.add(faker.unique.country_code())
             elif type_of_rec == 'country':
-                rec.append(faker.unique.country())
+                rec.add(faker.unique.country())
             elif type_of_rec == 'phone number':
-                rec.append(faker.unique.phone_number()) 
+                rec.add(faker.unique.phone_number()) 
             elif type_of_rec == 'city prefix':
-                rec.append(faker.unique.city())
+                rec.add(faker.unique.city())
             elif type_of_rec == 'city':
-                rec.append(faker.unique.city())
+                rec.add(faker.unique.city())
             elif type_of_rec == 'state prefix':
-                rec.append(faker.unique.state())
+                rec.add(faker.unique.state())
             elif type_of_rec == 'state':
-                rec.append(faker.unique.state())
+                rec.add(faker.unique.state())
             elif type_of_rec == 'postal code':
-                rec.append(faker.unique.postalcode())
+                rec.add(faker.unique.postalcode())
             elif type_of_rec == 'name':
-                rec.append(faker.unique.name())
+                rec.add(faker.unique.name())
             elif type_of_rec == 'char' or type_of_rec == 'varchar':
                 if type_of_rec == 'char':
                     char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(len_attr))
                     while char_rec in rec: 
                         char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(len_attr)) 
-                    rec.append(char_rec)
+                    rec.add(char_rec)
                 else:
                     rand_len = random.randint(0, len_attr)
                     var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len))
                     while var_char_rec in rec: 
                         var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len)) 
-                    rec.append(var_char_rec)
+                    rec.add(var_char_rec)
             elif type_of_rec == 'first name':
-                rec.append(faker.unique.first_name())
+                rec.add(faker.unique.first_name())
             elif type_of_rec == 'last name':
-                rec.append(faker.unique.last_name())
+                rec.add(faker.unique.last_name())
             elif type_of_rec == 'decimal':
                 rand_dec = (random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec)
                 while rand_dec in rec:
                     rand_dec = (random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec)
-                rec.append(rand_dec)
+                rec.add(rand_dec)
             elif type_of_rec == 'date':
-                rec.append(faker.unique.date_between(start_range, end_range))
+                rec.add(faker.unique.date_between(start_range, end_range))
             elif type_of_rec == 'datetime':
-                rec.append(faker.unique.date_time_between(start_range, end_range))
+                rec.add(faker.unique.date_time_between(start_range, end_range))
             elif type_of_rec == 'time':
                 start_sec = start_range.hour*60*60 + start_range.minute*60 + start_range.second
                 end_sec = end_range.hour*60*60 + end_range.minute*60 + end_range.second
@@ -159,8 +159,9 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 minute_time = (rand_sec - (hour_time*60*60)) // 60
                 second_time = (rand_sec - (hour_time*60*60)) % 60
                 time_rec = datetime.time(hour_time, minute_time, second_time)
-                rec.append(time_rec)
-                
+                rec.add(time_rec)
+    
+    rec = list(rec)            
     return({column_name: rec}) 
 
 def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr, static_values, len_attr, precision_dec, number_of_rows):
