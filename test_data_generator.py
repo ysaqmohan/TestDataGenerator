@@ -171,6 +171,14 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
         for i in range(0,number_of_rows): 
             if type_of_rec == 'country prefix': 
                 rec.append(faker.country_code()) 
+            elif type_of_rec == 'number': 
+                rec.append(faker.random_int(start_range, end_range))
+            elif type_of_rec == 'ID':
+                if len_attr == len_attr:
+                    id_len = int(len_attr)
+                else:
+                    id_len = 10
+                rec.append(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(id_len)))
             elif type_of_rec == 'country': 
                 rec.append(faker.country()) 
             elif type_of_rec == 'phone number': 
@@ -235,6 +243,7 @@ for i, row in user_ip_df.iterrows():
         n = int(row['Number_Of_Records'])
         pk = False           
     
+    
     if row['Databasename'] != db_curr or row['Tablename'] != tbl_curr:
         n = int(row['Number_Of_Records'])
         tblename = db_curr + '_' + tbl_curr + '.csv'
@@ -244,14 +253,16 @@ for i, row in user_ip_df.iterrows():
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
         pk = False
-        
+     
+    print(datetime.datetime.now(), " : ", db_curr.strip() + "." + tbl_curr.strip() + "." + row['Column'].strip() )
     val_min, val_max, static_value_list, precision_val, len_val =  derive_meta(row['Type'], row['Minimum'], row['Maximum'], row['Static_Value'], row['Length'], row['Precision'], n)
        
     if row['Key'] == 'Primary Key' or row['Key'] == 'Unique':
         if row['Key'] == 'Primary Key' and pk:
             print(db_curr + '_' + tbl_curr + ':', "More than one column is specified as primary key. If using composite key, select the option for it")
             sys.exit(1)
-        pk = True
+        if row['Key'] == 'Primary Key': 
+            pk = True
         data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, precision_val, n)
         if row['Key'] == 'Primary Key':             
             pk_dict[row['Index']] =  list(data_dict.values())[0] 
