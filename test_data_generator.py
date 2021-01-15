@@ -5,6 +5,7 @@ import random
 import sys 
 import string
 import datetime
+from collections import defaultdict
 
 def derive_meta(type_of_rec, min_field,max_field,static_field,length_field, precision_field,  n):
     '''Setting up the missing data in the input'''
@@ -164,7 +165,7 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
     rec = list(rec)            
     return({column_name: rec}) 
 
-def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr, static_values, len_attr, precision_dec, number_of_rows):
+def generate_attr(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, number_of_rows):
     '''Generate values for records which are not PK or FK'''
     rec = []
     #print(column_name, type_of_rec, start_range, end_range, length_attr, static_values, number_of_rows)
@@ -199,7 +200,7 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
             elif type_of_rec == 'decimal':
                 rec.append((random.randint(start_range*(10**precision_dec),end_range*(10**precision_dec)))/(10**precision_dec))
             elif type_of_rec == 'char' or type_of_rec == 'varchar':
-                if not length_attr:
+                if not len_attr:
                     print("Character or varchar columns need a length specification")
                     sys.exit(1)
                 
@@ -229,7 +230,95 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, length_attr,
             rec.append(random.choice(static_values))
                 
     return({column_name: rec})             
-           
+
+def generate_composite_key(composite_list):
+    comp_set = set()
+    number_of_rows = composite_list[0][7]
+    iiiii = 0
+    for r in range(number_of_rows):
+        iiiii += 1
+        print(datetime.datetime.now(), " : Composite Key Generation. Processing Line : ", iiiii)
+        curr_rec = []
+        dupes_cnt = 0
+        
+        while tuple(curr_rec) in comp_set or not curr_rec: #check if the composite key combination already exists
+            curr_rec = []
+            dupes_cnt += 1
+            
+            if dupes_cnt > 5000:
+                if dupes_cnt > len(comp_set):
+                    print("Not enough combination for generating Composite Key. Number of attempts made: ", dupes_cnt,". Generated set size: ", len(comp_set))
+                    sys.exit(1)
+            
+            for i in range(len(composite_list)): 
+                if not composite_list[i][4]:
+                    if composite_list[i][1] == 'ID': #type of record 
+                        if composite_list[i][5] == composite_list[i][5]: #length of field
+                            id_len = int(composite_list[i][5])
+                        else:
+                            id_len = 10
+                        curr_rec.append(''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(id_len)))
+                    elif composite_list[i][1] == 'name': 
+                        curr_rec.append(faker.name())
+                    elif composite_list[i][1] == 'number':
+                        curr_rec.append(faker.random_int(composite_list[i][2], composite_list[i][3]))
+                    elif composite_list[i][1] == 'country prefix': 
+                        curr_rec.append(faker.country_code())
+                    elif composite_list[i][1] == 'country': 
+                        curr_rec.append(faker.country())
+                    elif composite_list[i][1] == 'phone number': 
+                        curr_rec.append(faker.phone_number())
+                    elif composite_list[i][1] == 'city prefix': 
+                        curr_rec.append(faker.city())
+                    elif composite_list[i][1] == 'city': 
+                        curr_rec.append(faker.city())
+                    elif composite_list[i][1] == 'state prefix': 
+                        curr_rec.append(faker.state())
+                    elif composite_list[i][1] == 'state': 
+                        curr_rec.append(faker.state())
+                    elif composite_list[i][1] == 'postal code': 
+                        curr_rec.append(faker.postalcode())
+                    elif composite_list[i][1] == 'decimal': 
+                        curr_rec.append(random.randint(composite_list[i][2]*(10**composite_list[i][6]),composite_list[i][3]*(10**composite_list[i][6]))/(10**composite_list[i][6]))
+                    elif composite_list[i][1] == 'char' or composite_list[i][1] == 'varchar':
+                        if not composite_list[i][5]: 
+                            print("Character or varchar columns need a length specification")
+                            sys.exit(1)
+                        
+                        if composite_list[i][1] == 'char':
+                            char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(int(composite_list[i][5]))) 
+                            curr_rec.append(char_rec) 
+                        else:
+                            rand_len = random.randint(0, composite_list[i][5])
+                            var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(int(rand_len)))
+                            curr_rec.append(var_char_rec) 
+                    elif composite_list[i][1] == 'date':
+                        curr_rec.append(faker.date_between(composite_list[i][2], composite_list[i][3]))
+                    elif composite_list[i][1] == 'datetime':
+                        curr_rec.append(faker.date_time_between(composite_list[i][2], composite_list[i][3]))
+                    elif composite_list[i][1] == 'time':
+                        start_sec = composite_list[i][2].hour*60*60 + composite_list[i][2].minute*60 + composite_list[i][2].second
+                        end_sec = composite_list[i][3].hour*60*60 + composite_list[i][3].minute*60 + composite_list[i][3].second
+                        rand_sec = faker.random_int(start_sec, end_sec)
+                        hour_time = rand_sec//(60*60)
+                        minute_time = (rand_sec - (hour_time*60*60)) // 60
+                        second_time = (rand_sec - (hour_time*60*60)) % 60
+                        time_rec = datetime.time(hour_time, minute_time, second_time)
+                        curr_rec.append(time_rec)  
+                    else:
+                        print("Unidenfied")
+                else:
+                    curr_rec.append(random.choice(composite_list[i][4])) 
+        print(datetime.datetime.now(), " : Step 1 Composite Key Generation. Processing Line : ", iiiii)            
+        comp_set.add(tuple(curr_rec))
+        print(datetime.datetime.now(), " : Step 2 Composite Key Generation. Processing Line : ", iiiii)
+    comp_dict = defaultdict(list)
+    print(datetime.datetime.now(), " : Step 3 Composite Key Generation. Processing Line : ", iiiii)
+    for cd in list(comp_set):
+        for idx, e in enumerate(cd):
+            comp_dict[composite_list[idx][0]].append(e)
+    print(datetime.datetime.now(), " : Step 4 Composite Key Generation. Processing Line : ", iiiii)
+    return comp_dict 
 
 user_ip_df = pd.read_excel('E:/TestDataGeneration/test_data_generation.xlsx', dtype=str)
 faker = Faker(seed=1000)
@@ -242,7 +331,8 @@ for i, row in user_ip_df.iterrows():
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
         n = int(row['Number_Of_Records'])
-        pk = False           
+        pk = False 
+        ck = False          
     
     
     if row['Databasename'] != db_curr or row['Tablename'] != tbl_curr:
@@ -254,6 +344,7 @@ for i, row in user_ip_df.iterrows():
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
         pk = False
+        ck = False
      
     print(datetime.datetime.now(), " : ", db_curr.strip() + "." + tbl_curr.strip() + "." + row['Column'].strip() )
     val_min, val_max, static_value_list, precision_val, len_val =  derive_meta(row['Type'], row['Minimum'], row['Maximum'], row['Static_Value'], row['Length'], row['Precision'], n)
@@ -282,9 +373,27 @@ for i, row in user_ip_df.iterrows():
         else:
             print("For a foreign key, please specify dependency")
             sys.exit(1)
+                
+    elif row['Key'] == 'Composite Key' and ck == False:
+        composite_cols_df = user_ip_df.loc[(user_ip_df['Key'] == 'Composite Key') & (user_ip_df['Databasename'] == db_curr) & (user_ip_df['Tablename'] == tbl_curr)] 
+        if composite_cols_df.shape[0] < 2:
+            print("There is only one column given as composite key. Use primary key if one column is the PK.")
+            sys.exit(1)
+        
+        comp_list = list()
+        for j, comp_row in composite_cols_df.iterrows():
+            comp_min, comp_max, comp_static_value_list, comp_precision_val, comp_len_val =  derive_meta(comp_row['Type'], comp_row['Minimum'], comp_row['Maximum'], comp_row['Static_Value'], comp_row['Length'], comp_row['Precision'], n)
+            comp_tmp_list = [comp_row['Column'], comp_row['Type'], comp_min, comp_max, comp_static_value_list, comp_len_val, comp_precision_val, n]
+            comp_list.append(comp_tmp_list)
+
+        
+        ck_dict = generate_composite_key(comp_list)
+        ck_df = pd.DataFrame.from_dict(ck_dict,orient='index').transpose()
+        tbl_df = pd.concat([tbl_df,ck_df], axis=1)
+        ck = True                 
 
     else:
-        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, row['Length'], static_value_list, row['Length'], precision_val, n)
+        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, static_value_list, row['Length'], precision_val, n)
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         tbl_df[row['Column']] = data_df[row['Column']]
 
