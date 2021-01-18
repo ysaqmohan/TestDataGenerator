@@ -90,7 +90,7 @@ def derive_meta(type_of_rec, min_field,max_field,static_field,length_field, prec
     return val_min, val_max, static_value_list, precision_field, length_field
     
 
-def generate_key(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, number_of_rows):
+def generate_key(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, nullable_ind, number_of_rows):
     '''Generate values for records mentioned as primary key'''
     rec = set()
     if static_values:
@@ -162,10 +162,18 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 time_rec = datetime.time(hour_time, minute_time, second_time)
                 rec.add(time_rec)
     
-    rec = list(rec)            
+    rec = list(rec) 
+    
+    if nullable_ind != 'N': 
+        percent_rand_null = random.randint(1,5) 
+        number_of_nulls = n*percent_rand_null//100
+        
+        for null_r in range(0, number_of_nulls):
+            rec[random.randint(0,n)] = None 
+            
     return({column_name: rec}) 
 
-def generate_attr(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, number_of_rows):
+def generate_attr(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, nullable_ind, number_of_rows):
     '''Generate values for records which are not PK or FK'''
     rec = []
     #print(column_name, type_of_rec, start_range, end_range, length_attr, static_values, number_of_rows)
@@ -228,16 +236,20 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, static_value
     else: 
         for i in range(0,number_of_rows): 
             rec.append(random.choice(static_values))
+    
+    if nullable_ind != 'N': 
+        percent_rand_null = random.randint(1,5) 
+        number_of_nulls = n*percent_rand_null//100
+        
+        for null_r in range(0, number_of_nulls):
+            rec[random.randint(0,n)] = None
                 
     return({column_name: rec})             
 
 def generate_composite_key(composite_list):
     comp_set = set()
     number_of_rows = composite_list[0][7]
-    iiiii = 0
     for r in range(number_of_rows):
-        iiiii += 1
-        print(datetime.datetime.now(), " : Composite Key Generation. Processing Line : ", iiiii)
         curr_rec = []
         dupes_cnt = 0
         
@@ -306,18 +318,16 @@ def generate_composite_key(composite_list):
                         time_rec = datetime.time(hour_time, minute_time, second_time)
                         curr_rec.append(time_rec)  
                     else:
-                        print("Unidenfied")
+                        print("Unidentified")
                 else:
-                    curr_rec.append(random.choice(composite_list[i][4])) 
-        print(datetime.datetime.now(), " : Step 1 Composite Key Generation. Processing Line : ", iiiii)            
+                    curr_rec.append(random.choice(composite_list[i][4]))            
         comp_set.add(tuple(curr_rec))
-        print(datetime.datetime.now(), " : Step 2 Composite Key Generation. Processing Line : ", iiiii)
     comp_dict = defaultdict(list)
-    print(datetime.datetime.now(), " : Step 3 Composite Key Generation. Processing Line : ", iiiii)
+    
     for cd in list(comp_set):
         for idx, e in enumerate(cd):
             comp_dict[composite_list[idx][0]].append(e)
-    print(datetime.datetime.now(), " : Step 4 Composite Key Generation. Processing Line : ", iiiii)
+    print(datetime.datetime.now(), " : Composite Key Generation completed")
     return comp_dict 
 
 user_ip_df = pd.read_excel('E:/TestDataGeneration/test_data_generation.xlsx', dtype=str)
@@ -325,6 +335,9 @@ faker = Faker(seed=1000)
 tbl_df = pd.DataFrame()
 df_lists = []
 pk_dict = {}
+lookup_lst = user_ip_df[(user_ip_df['Dependency Index'].notnull()) & (user_ip_df['Key'] != 'Foreign Key')] ['Dependency Index'].to_list()
+lookup_dict = dict.fromkeys(lookup_lst,[])
+
 for i, row in user_ip_df.iterrows():
         
     if i==0: #set up the first database and table
@@ -355,9 +368,12 @@ for i, row in user_ip_df.iterrows():
             sys.exit(1)
         if row['Key'] == 'Primary Key': 
             pk = True
-        data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, precision_val, n)
+            row['Nullable'] = 'N'
+        data_dict = generate_key(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, precision_val, row['Nullable'], n)
         if row['Key'] == 'Primary Key':             
             pk_dict[row['Index']] =  list(data_dict.values())[0] 
+        if row['Index'] in lookup_dict:   
+            lookup_dict[row['Index']] = list(data_dict.values())[0]
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         tbl_df[row['Column']] = data_df[row['Column']]
     
@@ -368,13 +384,18 @@ for i, row in user_ip_df.iterrows():
                     print("Build the dependency before using it in the FK")
                     sys.exit(1)
                 fk_list = [ random.choice(pk_dict[row['Dependency Index']]) for _ in range(n) ]
+                if row['Index'] in lookup_dict:
+                    lookup_dict[row['Index']] = fk_list
                 tbl_df[row['Column']] = pd.Series(fk_list)
 
         else:
             print("For a foreign key, please specify dependency")
             sys.exit(1)
                 
-    elif row['Key'] == 'Composite Key' and ck == False:
+    elif row['Key'] == 'Composite Key': 
+        if ck == True:
+            print("Skipping a generated Composite Key Column")
+            continue
         composite_cols_df = user_ip_df.loc[(user_ip_df['Key'] == 'Composite Key') & (user_ip_df['Databasename'] == db_curr) & (user_ip_df['Tablename'] == tbl_curr)] 
         if composite_cols_df.shape[0] < 2:
             print("There is only one column given as composite key. Use primary key if one column is the PK.")
@@ -389,12 +410,61 @@ for i, row in user_ip_df.iterrows():
         
         ck_dict = generate_composite_key(comp_list)
         ck_df = pd.DataFrame.from_dict(ck_dict,orient='index').transpose()
+        
+        for c_ind, c_row in composite_cols_df.iterrows():
+            if c_row['Index'] in lookup_dict: 
+                lookup_dict[c_row['Index']] =  ck_df[str(c_row['Column'])].tolist() 
+                            
         tbl_df = pd.concat([tbl_df,ck_df], axis=1)
         ck = True                 
-
+    
+    elif row['Key'] == 'Lookup':
+        #print(lookup_dict)
+        if not row['Dependency Index']:
+            print("Please specify the column to lookup for Lookups")
+            sys.exit(1)
+            
+        if row['Dependency Index'] not in lookup_dict:
+            print("Lookup data not genertared yet")
+            sys.exit(1)
+        else:
+            print("Generating Lookup data")
+            lkp_list = [ random.choice(lookup_dict[row['Dependency Index']]) for _ in range(n) ]
+            if row['Index'] in lookup_dict: 
+                lookup_dict[row['Index']] = lkp_list 
+            tbl_df[row['Column']] = pd.Series(lkp_list)
+    
+    elif row['Key'] == 'Unique Lookup':
+        if not row['Dependency Index']:
+            print("Please specify the column to lookup for Lookups")
+            sys.exit(1)
+            
+        if row['Dependency Index'] not in lookup_dict:
+            print("Lookup data not genertared yet")
+            sys.exit(1)
+        else:
+            print("Generating Lookup data")
+            lkp_set = set()
+            for r in lookup_dict[row['Dependency Index']]:
+                lkp_set.add(r)
+                
+                if len(lkp_set) > n-1:
+                    break
+                
+            if len(lkp_set) < n:
+                print("Not enough lookup values to generate unique lookup")
+                sys.exit(1)
+                
+            if row['Index'] in lookup_dict: 
+                lookup_dict[row['Index']] = list(lkp_set) 
+                
+            tbl_df[row['Column']] = pd.Series(list(lkp_set))
+    
     else:
-        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, static_value_list, row['Length'], precision_val, n)
+        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, static_value_list, row['Length'], precision_val, row['Nullable'], n)
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
+        if row['Index'] in lookup_dict: 
+            lookup_dict[row['Index']] = data_dict.items()
         tbl_df[row['Column']] = data_df[row['Column']]
 
 tblename = db_curr + '_' + tbl_curr + '.csv'        
