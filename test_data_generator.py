@@ -169,7 +169,7 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
         number_of_nulls = n*percent_rand_null//100
         
         for null_r in range(0, number_of_nulls):
-            rec[random.randint(0,n)] = None 
+            rec[random.randint(0,n-1)] = None 
             
     return({column_name: rec}) 
 
@@ -242,7 +242,7 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, static_value
         number_of_nulls = n*percent_rand_null//100
         
         for null_r in range(0, number_of_nulls):
-            rec[random.randint(0,n)] = None
+            rec[random.randint(0,n-1)] = None
                 
     return({column_name: rec})             
 
