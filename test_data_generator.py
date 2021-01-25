@@ -6,6 +6,39 @@ import sys
 import string
 import datetime
 from collections import defaultdict
+import os.path
+import sqlalchemy
+import psycopg2
+#import params
+
+def write_to_target(db_name, tbl_name, wrt_df):
+    '''Write the df to database if param file exist, else write to a file''' 
+    
+    if not os.path.isfile('params.txt'):
+        print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Paramter file unavailable. Writing the data to csv file" )
+        filename = db_name + '_' + tbl_name + '.csv'
+        wrt_df.to_csv(filename)
+    else:
+        #connecting to DB 
+        try: 
+            db_type
+            engine = sqlalchemy.create_engine('postgres://postgres:Susi@123@localhost:5432/reviews_db') 
+            with engine.connect() as connection: 
+                print("DB connection established: ", bool(connection))
+            wrt_df.to_sql('reviewer_wt', con=engine, if_exists="replace", schema= 'work_schema', index=False)
+            
+        except (Exception, psycopg2.Error) as error : 
+            print ("Error while connecting to DB.", error)
+            print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Writing the data to csv file" )
+            filename = db_name + '_' + tbl_name + '.csv' 
+            wrt_df.to_csv(filename)
+            
+        finally: 
+            #closing database connection. 
+            if(connection): 
+                connection.close() 
+                print("PostgreSQL connection is closed")
+
 
 def derive_meta(type_of_rec, min_field,max_field,static_field,length_field, precision_field,  n):
     '''Setting up the missing data in the input'''
@@ -116,11 +149,11 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
             elif type_of_rec == 'phone number':
                 rec.add(faker.unique.phone_number()) 
             elif type_of_rec == 'city prefix':
-                rec.add(faker.unique.city())
+                rec.add(faker.unique.city_suffix())
             elif type_of_rec == 'city':
                 rec.add(faker.unique.city())
-            elif type_of_rec == 'state prefix':
-                rec.add(faker.unique.state())
+            elif type_of_rec == 'address':
+                rec.add(faker.unique.address())
             elif type_of_rec == 'state':
                 rec.add(faker.unique.state())
             elif type_of_rec == 'postal code':
@@ -136,7 +169,8 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 else:
                     rand_len = random.randint(0, len_attr)
                     var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len))
-                    while var_char_rec in rec: 
+                    while var_char_rec in rec:
+                        rand_len = random.randint(0, len_attr)
                         var_char_rec = ''.join(random.choice(string.ascii_uppercase) for _ in range(rand_len)) 
                     rec.add(var_char_rec)
             elif type_of_rec == 'first name':
@@ -161,6 +195,9 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
                 second_time = (rand_sec - (hour_time*60*60)) % 60
                 time_rec = datetime.time(hour_time, minute_time, second_time)
                 rec.add(time_rec)
+            else:
+                print("Value for type of record is unidentified. Exiting")
+                sys.exit(1)
     
     rec = list(rec) 
     
@@ -176,6 +213,7 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
 def generate_attr(column_name, type_of_rec, start_range, end_range, static_values, len_attr, precision_dec, nullable_ind, number_of_rows):
     '''Generate values for records which are not PK or FK'''
     rec = []
+    
     #print(column_name, type_of_rec, start_range, end_range, length_attr, static_values, number_of_rows)
     if not static_values: 
         for i in range(0,number_of_rows): 
@@ -194,11 +232,11 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, static_value
             elif type_of_rec == 'phone number': 
                 rec.append(faker.phone_number())
             elif type_of_rec == 'city prefix':
-                rec.append(faker.city())
+                rec.append(faker.city_suffix())
             elif type_of_rec == 'city':
                 rec.append(faker.city())
-            elif type_of_rec == 'state prefix':
-                rec.append(faker.state())
+            elif type_of_rec == 'address':
+                rec.append(faker.address())
             elif type_of_rec == 'state':
                 rec.append(faker.state())
             elif type_of_rec == 'postal code':
@@ -232,6 +270,9 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, static_value
                 second_time = (rand_sec - (hour_time*60*60)) % 60
                 time_rec = datetime.time(hour_time, minute_time, second_time)
                 rec.append(time_rec)
+            else:
+                print("Value for type of record is unidentified. Exiting")
+                sys.exit(1)
                 
     else: 
         for i in range(0,number_of_rows): 
@@ -281,11 +322,11 @@ def generate_composite_key(composite_list):
                     elif composite_list[i][1] == 'phone number': 
                         curr_rec.append(faker.phone_number())
                     elif composite_list[i][1] == 'city prefix': 
-                        curr_rec.append(faker.city())
+                        curr_rec.append(faker.city_suffix())
                     elif composite_list[i][1] == 'city': 
                         curr_rec.append(faker.city())
-                    elif composite_list[i][1] == 'state prefix': 
-                        curr_rec.append(faker.state())
+                    elif composite_list[i][1] == 'address': 
+                        curr_rec.append(faker.address())
                     elif composite_list[i][1] == 'state': 
                         curr_rec.append(faker.state())
                     elif composite_list[i][1] == 'postal code': 
@@ -318,7 +359,8 @@ def generate_composite_key(composite_list):
                         time_rec = datetime.time(hour_time, minute_time, second_time)
                         curr_rec.append(time_rec)  
                     else:
-                        print("Unidentified")
+                        print("Unidentified type of record. Exiting")
+                        sys.exit(1)
                 else:
                     curr_rec.append(random.choice(composite_list[i][4]))            
         comp_set.add(tuple(curr_rec))
@@ -330,10 +372,9 @@ def generate_composite_key(composite_list):
     print(datetime.datetime.now(), " : Composite Key Generation completed")
     return comp_dict 
 
-user_ip_df = pd.read_excel('E:/TestDataGeneration/test_data_generation.xlsx', dtype=str)
+user_ip_df = pd.read_excel('test_data_generation.xlsx', dtype=str)
 faker = Faker(seed=1000)
 tbl_df = pd.DataFrame()
-df_lists = []
 pk_dict = {}
 lookup_lst = user_ip_df[(user_ip_df['Dependency Index'].notnull()) & (user_ip_df['Key'] != 'Foreign Key')] ['Dependency Index'].to_list()
 lookup_dict = dict.fromkeys(lookup_lst,[])
@@ -350,9 +391,7 @@ for i, row in user_ip_df.iterrows():
     
     if row['Databasename'] != db_curr or row['Tablename'] != tbl_curr:
         n = int(row['Number_Of_Records'])
-        tblename = db_curr + '_' + tbl_curr + '.csv'
-        tbl_df.to_csv(tblename)
-        df_lists.append(tbl_df)
+        write_to_target(db_curr, tbl_curr, tbl_df)
         tbl_df = pd.DataFrame()
         db_curr = row['Databasename'] 
         tbl_curr = row['Tablename']
@@ -461,11 +500,10 @@ for i, row in user_ip_df.iterrows():
             tbl_df[row['Column']] = pd.Series(list(lkp_set))
     
     else:
-        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, static_value_list, row['Length'], precision_val, row['Nullable'], n)
+        data_dict = generate_attr(row['Column'], row['Type'], val_min, val_max, static_value_list, len_val, precision_val, row['Nullable'], n)
         data_df = pd.DataFrame.from_dict(data_dict,orient='index').transpose()
         if row['Index'] in lookup_dict: 
             lookup_dict[row['Index']] = data_dict.items()
         tbl_df[row['Column']] = data_df[row['Column']]
 
-tblename = db_curr + '_' + tbl_curr + '.csv'        
-tbl_df.to_csv(tblename)
+write_to_target(db_curr, tbl_curr, tbl_df)
