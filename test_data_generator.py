@@ -9,10 +9,10 @@ from collections import defaultdict
 import os.path
 import sqlalchemy
 import psycopg2
-#import params
 
 def write_to_target(db_name, tbl_name, wrt_df):
     '''Write the df to database if param file exist, else write to a file''' 
+    connection = False
     
     if not os.path.isfile('params.txt'):
         print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Paramter file unavailable. Writing the data to csv file" )
@@ -20,12 +20,16 @@ def write_to_target(db_name, tbl_name, wrt_df):
         wrt_df.to_csv(filename)
     else:
         #connecting to DB 
-        try: 
-            db_type
-            engine = sqlalchemy.create_engine('postgres://postgres:Susi@123@localhost:5432/reviews_db') 
+        try:             
+            engine = sqlalchemy.create_engine('postgres://postgres:Password@123@localhost:5432/test_data_db') 
             with engine.connect() as connection: 
                 print("DB connection established: ", bool(connection))
-            wrt_df.to_sql('reviewer_wt', con=engine, if_exists="replace", schema= 'work_schema', index=False)
+                
+                if not connection.dialect.has_schema(connection, db_name):
+                    print("Schema undefined. Creating a new schema: ", db_name)
+                    engine.execute(sqlalchemy.schema.CreateSchema(db_name))
+                
+            wrt_df.to_sql(tbl_name, con=engine, if_exists="replace", schema= db_name, index=False)
             
         except (Exception, psycopg2.Error) as error : 
             print ("Error while connecting to DB.", error)
