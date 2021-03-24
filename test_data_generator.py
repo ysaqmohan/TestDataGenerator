@@ -35,7 +35,7 @@ def write_to_target(db_name, tbl_name, wrt_df):
             print ("Error while connecting to DB.", error)
             print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Writing the data to csv file" )
             filename = db_name + '_' + tbl_name + '.csv' 
-            wrt_df.to_csv(filename)
+            wrt_df.to_csv(filename, index=False,  sep='|')
             
         finally: 
             #closing database connection. 
