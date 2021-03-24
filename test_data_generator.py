@@ -17,7 +17,7 @@ def write_to_target(db_name, tbl_name, wrt_df):
     if not os.path.isfile('params.txt'):
         print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Paramter file unavailable. Writing the data to csv file" )
         filename = db_name + '_' + tbl_name + '.csv'
-        wrt_df.to_csv(filename)
+        wrt_df.to_csv(filename, index=False,  sep='|')
     else:
         #connecting to DB 
         try:             
@@ -35,7 +35,7 @@ def write_to_target(db_name, tbl_name, wrt_df):
             print ("Error while connecting to DB.", error)
             print(datetime.datetime.now(), " : ", db_name.strip() + "." + tbl_name.strip() + " : Writing the data to csv file" )
             filename = db_name + '_' + tbl_name + '.csv' 
-            wrt_df.to_csv(filename, index=False,  sep='|')
+            wrt_df.to_csv(filename)
             
         finally: 
             #closing database connection. 
@@ -157,7 +157,7 @@ def generate_key(column_name, type_of_rec, start_range, end_range, static_values
             elif type_of_rec == 'city':
                 rec.add(faker.unique.city())
             elif type_of_rec == 'address':
-                rec.add(faker.unique.address())
+                rec.add((faker.unique.address()).replace('\n', ', '))
             elif type_of_rec == 'state':
                 rec.add(faker.unique.state())
             elif type_of_rec == 'postal code':
@@ -240,7 +240,7 @@ def generate_attr(column_name, type_of_rec, start_range, end_range, static_value
             elif type_of_rec == 'city':
                 rec.append(faker.city())
             elif type_of_rec == 'address':
-                rec.append(faker.address())
+                rec.append((faker.address()).replace('\n', ', '))
             elif type_of_rec == 'state':
                 rec.append(faker.state())
             elif type_of_rec == 'postal code':
@@ -330,7 +330,7 @@ def generate_composite_key(composite_list):
                     elif composite_list[i][1] == 'city': 
                         curr_rec.append(faker.city())
                     elif composite_list[i][1] == 'address': 
-                        curr_rec.append(faker.address())
+                        curr_rec.append((faker.address()).replace('\n', ', '))
                     elif composite_list[i][1] == 'state': 
                         curr_rec.append(faker.state())
                     elif composite_list[i][1] == 'postal code': 
